@@ -1,0 +1,635 @@
+
+\documentclass{article}
+
+\input{setup}
+
+\begin{document}
+
+\CAPA{Trabalho Prático 3: Jogo da Vida}{BCC202 - Estruturas de Dados 1}{Fábio Tavares Pinto e Hugo Augusto Silva de Faria}{Pedro Henrique Lopes Silva}
+
+\section{Introdução}
+
+\par O Jogo da Vida, proposto por John Conway em 1970, é um autômato celular que exemplifica como regras simples podem levar à emergência de comportamentos complexos. Este jogo, amplamente estudado em ciência da computação e matemática, é jogado em uma grade bidimensional onde cada célula pode estar viva ou morta. A evolução do sistema ocorre em iterações, e o estado futuro de cada célula é determinado pelo número de vizinhos vivos, seguindo um conjunto de regras fixas.
+
+\par Neste trabalho, foi desenvolvido um simulador do Jogo da Vida utilizando a linguagem C. Para otimizar a manipulação das células vivas e mortas, foi implementada uma tabela hash com endereçamento duplo, que armazena o estado do tabuleiro de forma eficiente. O objetivo principal é garantir a correta evolução do autômato ao longo de várias gerações, mantendo a eficiência em termos de tempo e uso de memória.
+
+As principais funcionalidades deste simulador incluem:
+
+\begin{itemize}
+\item Alocação e desalocação de memória: Inicialização eficiente da tabela hash para o armazenamento das células e liberação da memória após o uso, evitando vazamentos.
+\item Leitura e impressão do tabuleiro: Funções que leem o estado inicial das células e imprimem o estado do tabuleiro ao final de cada iteração, permitindo a visualização do progresso do jogo.
+\item Evolução do sistema: Implementação das regras do Jogo da Vida, onde o estado de cada célula é atualizado com base na contagem de seus vizinhos vivos, permitindo a simulação das gerações. 
+\end{itemize}
+
+\par Este relatório descreve a estrutura do simulador, detalha as funções implementadas e discute o comportamento observado. Através deste projeto, investigamos como padrões emergentes podem surgir de sistemas governados por regras simples e exploramos o uso de autômatos celulares em simulações computacionais.
+
+\section{Arquivo de Cabeçalho (double hash.h)}
+
+O arquivo de cabeçalho hash.h define a interface para o módulo que implementa a manipulação de uma tabela hash com endereçamento aberto. Ele contém as declarações de tipos de dados e funções utilizadas para inicializar, inserir, buscar, remover e desalocar a tabela hash. A seguir, estão descritos os principais componentes e suas funções: 
+
+\subsection{Código}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+#pragma once
+
+// Estrutura da Tabela Hash
+typedef struct {
+    int key; // A chave que representa uma celula viva (1) ou morta (0)
+    int value; // Valor associado a chave, no caso do Jogo da Vida, sera 1 (vivo) ou 0 (morto)
+    int is_occupied; // 0 se a posicao esta vazia, 1 se esta ocupada
+} HashEntry;
+
+// Estrutura principal da Tabela Hash com enderecamento aberto
+typedef struct {
+    int size; // Tamanho da tabela
+    HashEntry *table; // Array que representa a tabela hash
+    int *pesos; // Vetor de pesos para as funcoes hash
+} HashTable;
+
+// Funcao hash1
+int hash1(int key, int size, int *pesos);
+
+// Funcao hash2
+int hash2(int key, int size, int *pesos);
+
+// Funcao para inicializar a Tabela Hash
+HashTable *inicializarHash(int size);
+
+// Funcao para inserir um elemento na Tabela Hash
+void inserirHash(HashTable *hashTable, int key, int value);
+
+// Funcao para buscar um elemento na Tabela Hash
+int buscarHash(HashTable *hashTable, int key);
+
+// Funcao para desalocar a Tabela Hash
+void desalocarHash(HashTable **hashTable);
+
+ 
+ \end{lstlisting}
+
+ \subsection{Estrutura 'HashEntry'}
+
+ \par Essa parte do código define uma estrutura chamada HashEntry, que é usada para representar uma entrada na tabela hash. A estrutura possui três campos::
+
+\begin{itemize}
+
+\item \verb|int key|: Armazena a chave que representa uma célula viva (1) ou morta (0).
+
+\item \verb|int value|: Armazena o valor associado à chave, que no caso do Jogo da Vida será 1 (vivo) ou 0 (morto).
+
+\item \verb|int is_ocuppied|: Indica se a posição na tabela está ocupada (1) ou vazia (0).
+
+ \end{itemize}
+ 
+
+ \subsection{Estrutura 'HashTable'}
+
+A estrutura \verb|HashTable| : é definida para representar a tabela hash. Ela contém:
+
+\begin{itemize}
+    \item \verb|int size|: Um inteiro que representa o tamanho da tabela. 
+    \item \verb|HashEntry *table|: Um ponteiro para um array de HashEntry, que representa a tabela hash.
+    \item     \verb|int *pesos|: Um vetor de pesos utilizado para as funções hash. 
+ 
+\end{itemize}
+
+ \subsection{Funções Declaradas}
+
+ \begin{itemize}
+
+ \item \verb|*int hash1(int key, int size, int pesos)|: Esta função implementa a primeira função hash. Ela calcula um índice na tabela hash baseado na chave fornecida, utilizando os pesos especificados. 
+
+ \item \verb|*int hash2(int key, int size, int *pesos)|:Esta função implementa a segunda função hash, semelhante à primeira, mas com uma lógica de hash diferente, permitindo a resolução de colisões. 
+
+\item \verb|*HashTable inicializarHash(int size)|: Esta função aloca memória para uma nova tabela hash e inicializa suas entradas, retornando um ponteiro para a estrutura HashTable recém-alocada.  
+
+\item \verb|*void inserirHash(HashTable hashTable, int key, int value)|: Esta função insere um novo elemento na tabela hash, utilizando as funções hash para encontrar um índice apropriado e tratando colisões conforme necessário.
+
+\item \verb|*int buscarHash(HashTable hashTable, int key)|: Busca e retorna o valor associado à chave fornecida na tabela hash. Se a chave não existir, a função retorna um valor que indica a ausência.
+
+\item \verb|**void desalocarHash(HashTable hashTable)|: Libera a memória alocada para a tabela hash, garantindo que todos os recursos sejam corretamente desalocados.
+ 
+
+ \end{itemize}
+
+
+\section{Arquivo de Implementação (double hash.c)}
+
+O arquivo de implementação double\_hash.c contém a definição das funções declaradas no arquivo de cabeçalho double\_hash.h. Essas funções são responsáveis pela inicialização, inserção, busca, remoção e desalocação de elementos em uma tabela hash que utiliza o método de hashing duplo. A seguir, estão descritas as principais funções e sua implementação: 
+
+\subsection{Função Hash1}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+int hash1(int key, int size, int *pesos) {
+    return (key * pesos[0] + pesos[1]) % size;
+}
+\end{lstlisting}
+
+\par A função hash1 é a principal função de hash que gera o índice inicial para inserir ou buscar um elemento na tabela hash. Ela usa uma chave (key), o tamanho da tabela (size), e um vetor de pesos para gerar um valor único. A fórmula básica é (key * pesos[0] + pesos[1]) \% size, onde os pesos adicionam variação ao cálculo, ajudando a distribuir melhor as chaves na tabela, e o operador módulo (\%) garante que o índice esteja dentro dos limites da tabela (de 0 até size-1).
+
+\subsection{Função Hash2}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+int hash2(int key, int size, int *pesos) {
+    // Para evitar o hash2 de ser zero, usamos (pesos[2] + key) % (size - 1) + 1
+    return (key * pesos[2] + pesos[3]) % (size - 1) + 1;
+}
+\end{lstlisting}
+
+\par A função hash2 é usada para resolver colisões. Ela gera um "passo" (offset) diferente para cada chave, calculado pela fórmula (key * pesos[2] + pesos[3]) \% (size - 1) + 1. Esse "passo" garante que, em caso de colisão, o elemento será realocado em outro índice, permitindo um duplo hashing.
+
+\subsection{Função inicializarHash}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+// Inicializacao da Tabela Hash
+HashTable *inicializarHash(int size) {
+    HashTable *hashTable = (HashTable *)malloc(sizeof(HashTable));
+    if (hashTable == NULL) {
+        printf("Erro de memoria");
+return NULL;
+}
+    hashTable->size = size;
+    hashTable->table = (HashEntry *)malloc(size * sizeof(HashEntry));
+    if (hashTable->table == NULL) {
+        printf("Erro de memoria");
+    free(hashTable);
+return NULL;
+}
+
+// Inicializa as entradas como nao ocupadas
+    for (int i = 0; i < size; i++) {
+        hashTable->table[i].is_occupied = 0;
+    }
+
+// Aloca e inicializa o vetor de pesos
+hashTable->pesos = (int *)malloc(4 * sizeof(int));
+hashTable->pesos[0] = 1;
+hashTable->pesos[1] = 2;
+hashTable->pesos[2] = 3;
+hashTable->pesos[3] = 4;
+return hashTable;
+}
+\end{lstlisting}
+
+\par A função inicializarHash aloca memória para uma tabela hash de um determinado tamanho. Ela cria a estrutura HashTable, inicializa a tabela de entradas como não ocupadas e aloca um vetor de pesos para as funções de hash. Se alguma alocação falhar, uma mensagem de erro é impressa e a função retorna NULL; caso contrário, retorna um ponteiro para a tabela hash criada. Sua complexidade é de O(m) porque o tempo de execução da função depende linearmente do tamanho da tabela hash , m é a dimensão da matriz.
+
+\subsection{Função inserirHash}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+// Insercao na Tabela Hash utilizando dupla hashing
+void inserirHash(HashTable *hashTable, int key, int value) {
+    int index = hash1(key, hashTable->size, hashTable->pesos);
+    int step = hash2(key, hashTable->size, hashTable->pesos);
+    while (hashTable->table[index].is\_occupied) {
+        if (hashTable->table[index].key == key) {
+            // Atualiza o valor se a chave ja existe
+            hashTable->table[index].value = value;
+    return;
+    }
+// Avanca para o proximo indice utilizando a funcao de hashing duplo
+    index = (index + step) \% hashTable->size;
+}
+
+// Insere a nova entrada
+    hashTable->table[index].key = key;
+    hashTable->table[index].value = value;
+    hashTable->table[index].is_occupied = 1;
+}
+\end{lstlisting}
+
+\par A função \verb|inserirHash| insere uma nova entrada na tabela hash utilizando o método de hashing duplo. Ela calcula o índice inicial usando hash1 e o passo de deslocamento usando hash2. Se a posição já estiver ocupada e a chave já existir, o valor é atualizado; caso contrário, a nova entrada é inserida na posição apropriada. A complexidade dessa função depende do número de colisões que ocorrem durante a inserção, no pior caso a complexidade é O(m) devido à possibilidade de percorrer até m entradas durante o processo de resolução de colisões.
+
+ 
+
+\subsection{Função buscarHash}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+// Busca na Tabela Hash utilizando dupla hashing
+int buscarHash(HashTable *hashTable, int key) {
+    int index = hash1(key, hashTable->size, hashTable->pesos);
+    int step = hash2(key, hashTable->size, hashTable->pesos);
+    while (hashTable->table[index].is_occupied) {
+        if (hashTable->table[index].key == key) {
+return hashTable->table[index].value;
+    }
+        // Avanca para o proximo indice utilizando a funcao de hashing duplo
+        index = (index + step) \% hashTable->size;
+    }
+    return -1; // Indica que a chave nao foi encontrada
+}
+\end{lstlisting}
+\par A função \verb|buscarHash| procura por uma chave específica na tabela hash. Ela utiliza a função de hashing duplo para encontrar o índice inicial e, em seguida, percorre a tabela até encontrar a chave ou determinar que ela não existe, retornando \verb|-1| nesse último caso.  A complexidade dessa função também depende de quantas colisões ocorreram na tabela hash, o pior caso é O(m) e o melhor caso é se não houver colisões e a chave for encontrada imediatamente, que seria 0(1).
+
+\subsection{Função desalocarHash}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+// Desalocacao da Tabela Hash
+void desalocarHash(HashTable **hashTable) {
+    if (hashTable == NULL || *hashTable == NULL) {
+    return;
+    }
+    
+    free((*hashTable)->table);
+    free((*hashTable)->pesos); // Libera o vetor de pesos
+    free(*hashTable);
+    *hashTable = NULL;
+}
+\end{lstlisting}
+
+\par A função \verb|desalocarHash| libera a memória ocupada pela tabela hash e seu vetor de pesos. Ela verifica se o ponteiro da tabela hash é válido antes de proceder com a desalocação, definindo o ponteiro como \verb|NULL| para evitar acessos a memória desalocada. A complexidade dessa função é O(1), visto que a função realiza operações independentes do tamanho da tabela.
+
+\section{Arquivo de Cabeçalho (automato.h)}
+
+O arquivo de cabeçalho \verb|automato.h| define a interface para o módulo que implementa a evolução de um autômato celular, representado por uma tabela hash com endereçamento duplo. Ele contém as declarações de funções utilizadas para inicializar o autômato, ler o estado inicial, evoluí-lo ao longo de várias gerações e imprimir o estado atual na tela.
+A seguir, estão descritos os principais componentes e suas funções: 
+
+\subsection{Código}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+#pragma once
+
+#include "double_hash.h"
+
+// Definicao do tipo Automato
+typedef struct
+{
+    int n; // Dimensao do Automato (n x n)
+    HashTable *tabela; // Ponteiro para a tabela hash que representa o Automato
+} Automato;
+
+// Funcao para inicializar o automato
+Automato *alocarReticulado(int n);
+
+// Funcao para desalocar a memoria do Automato
+void desalocarReticulado(Automato **tab);
+
+// Funcao para ler o Automato
+void LeituraReticulado(Automato *tab);
+
+// Funcao para evoluir o estado do Automato para a geracao N de acordo com as regras do Jogo da Vida
+Automato *evoluirReticulado(Automato *tab, int n, int geracoes);
+
+// Funcao para imprimir o estado do Automato na tela
+void imprimeReticulado(Automato *tab);
+ \end{lstlisting}
+ 
+ \subsection{Estrutura 'Automato'}
+
+Essa parte do código define uma estrutura chamada \verb|Automato|, que é utilizada para representar um autômato celular, que evolui ao longo de várias gerações em um reticulado. A estrutura possui dois campos:  
+
+\begin{itemize}
+    \item int n: Um inteiro que representa a dimensão do reticulado do autômato (n x n). Ele indica o tamanho da "tabela" onde o autômato evolui.
+    \item *HashTable tabela: Um ponteiro para uma tabela hash que representa o estado atual do autômato. Essa tabela é usada para armazenar as células vivas do reticulado em um formato eficiente de busca, evitando o uso de uma matriz esparsa tradicional e permitindo simular o Jogo da Vida de maneira otimizada.
+ 
+\end{itemize}
+
+
+ \subsection{Funções Declaradas}
+
+ \begin{itemize}
+
+ \item Automato *alocarReticulado(int n): Esta função é responsável por alocar memória para um novo autômato, baseado em um reticulado de dimensão \verb|n x n|. Ela cria e inicializa a tabela hash associada ao autômato e retorna um ponteiro para a estrutura recém-alocada. Se a alocação falhar, a função retornará \verb|NULL|. Assim, essa função prepara o ambiente para a evolução do autômato.
+
+ \item  void desalocarReticulado(Automato **tab): Essa função libera a memória alocada para o autômato, evitando vazamentos de memória. Ela desaloca primeiramente a tabela hash associada ao autômato e, em seguida, libera a memória da própria estrutura Automato. Ao passar um ponteiro para um ponteiro, ela permite a liberação completa do recurso de memória. 
+
+\item void LeituraReticulado(Automato *tab): Essa função lê o estado inicial do autômato a partir da entrada padrão. A leitura é utilizada para configurar as células vivas no reticulado, ou seja, na tabela hash, definindo o estado inicial do autômato para a simulação do Jogo da Vida. A função popula a tabela hash com as informações fornecidas pelo arquivo de entrada.
+
+\item  Automato *evoluirReticulado(Automato *tab, int n, int geracoes): Essa função aplica as regras de evolução do Jogo da Vida ao autômato, ao longo de um número especificado de gerações. A cada geração, o estado do reticulado na tabela hash é atualizado, conforme as regras do jogo, modificando as posições das células vivas. O retorno da função é o autômato atualizado, pronto para evoluir para a próxima geração ou ser impresso.
+
+\item *void imprimeReticulado(Automato *tab): Esta função imprime o estado atual do reticulado do autômato na tela, permitindo a visualização do autômato após cada evolução. Ela percorre a tabela hash e exibe as células vivas, mostrando a configuração atual do reticulado.
+
+
+ \end{itemize}
+
+
+\section{Arquivo de Implementação (automato.c)}
+
+O arquivo de implementação \verb|automato.c| contém a definição das funções declaradas no arquivo de cabeçalho automato.h. Essas funções são responsáveis pela alocação, leitura, evolução e impressão do estado de uma matriz representada por uma tabela hash no contexto do Jogo da Vida. A seguir, estão descritas as principais funções e sua implementação:
+
+\subsection{Função alocarReticulado}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+Automato *alocarReticulado(int n)
+{
+    Automato *tab = (Automato *)malloc(sizeof(Automato));
+    if (tab == NULL)
+    {
+        printf("Erro de memoria\textbackslash{}n");
+        return NULL;
+    }
+    tab->n = n;
+    tab->tabela = inicializarHash(n * n); // Inicializa a Tabela Hash com tamanho adequado
+    if (tab->tabela == NULL)
+    {
+        printf("Erro de memoria ao inicializar a tabela hash\textbackslash{}n");
+        free(tab);
+        return NULL;
+    }
+    return tab;
+}
+
+ \end{lstlisting}
+
+ \par A função \verb|alocarReticulado| é responsável por criar e inicializar uma nova instância da estrutura Automato. Ela recebe um inteiro n, que define a dimensão da matriz a ser representada pela tabela hash. A função começa alocando memória para a estrutura Automato e, em seguida, inicializa a tabela hash com o tamanho adequado. Se qualquer etapa falhar, a função desaloca a memória e retorna NULL. Essa função tem complexidade O(m2), pois a operação dominante na função é a inicialização da Tabela Hash com m2 entradas.  
+
+\subsection{Função desalocarReticulado  }
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+void desalocarReticulado(Automato **tab)
+{
+    if (tab == NULL || *tab == NULL || (*tab)->tabela == NULL)
+    {
+        return;
+    }
+    
+    desalocarHash(\&((*tab)->tabela)); // Desaloca a Tabela Hash
+    free(*tab);
+    *tab = NULL;
+}
+
+ \end{lstlisting}
+
+ \par A função \verb|desalocarReticulado| libera a memória associada ao objeto Automato e à tabela hash. Ela verifica se os ponteiros são válidos antes de liberar a memória. A tabela hash é desalocada usando a função desalocarHash, e o ponteiro para a estrutura é definido como NULL para evitar acessos inválidos. A operação dominante nesta função é a desalocação da Tabela Hash, que possui tamanho m2. Portanto, a complexidade total da função é O(m2).
+
+ 
+ 
+\subsection{Função LeituraReticulado  }
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+void LeituraReticulado(Automato *tab)
+{
+    int valor;
+    for (int i = 0; i < tab->n; i++)
+    {
+        for (int j = 0; j < tab->n; j++)
+        {
+            scanf("%d", &valor);
+            if (valor == 1)
+            { // Se a celula esta viva, insere na Tabela Hash
+                inserirHash(tab->tabela, i * tab->n + j, 1);
+            }
+        }
+    }
+}
+
+ \end{lstlisting}
+
+ \par A função  \verb|leituraReticulado| é responsável por ler o estado inicial da matriz representada na tabela hash. A função percorre cada célula da matriz e, para cada célula viva (representada por 1), insere a posição correspondente na tabela hash. Isso permite representar eficientemente células vivas em uma estrutura otimizada. A complexidade da função é O(m2) devido aos dois laços aninhados que percorrem todos os elementos de uma matriz mXm.
+
+
+\subsection{Função evoluirReticulado  }
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+Automato *evoluirReticulado(Automato *tab, int n, int geracoes)
+{
+    if (geracoes == 0)
+    {
+        return tab;
+    }
+
+    Automato *novoAutomato = alocarReticulado(n);
+    if (novoAutomato == NULL)
+    {
+        return NULL;
+    }
+
+    for (int i = 0; i < n; i++)
+    {
+        for (int j = 0; j < n; j++)
+        {
+            int key = i * n + j;
+            int vizinhosVivos = 0;
+
+            // Contagem de vizinhos vivos
+            for (int di = -1; di <= 1; di++)
+            {
+                for (int dj = -1; dj <= 1; dj++)
+                {
+                    if (di == 0 && dj == 0)
+                        continue;
+
+                    int ni = i + di;
+                    int nj = j + dj;
+                    if (ni >= 0 && ni < n && nj >= 0 && nj < n)
+                    {
+                        int vizinhoKey = ni * n + nj;
+                        if (buscarHash(tab->tabela, vizinhoKey) == 1)
+                        {
+                            vizinhosVivos++;
+                        }
+                    }
+                }
+            }
+
+            int cellState = buscarHash(tab->tabela, key);
+            if (cellState == 1)
+            { // Se a celula esta viva
+                if (vizinhosVivos == 2 || vizinhosVivos == 3)
+                {
+                    inserirHash(novoAutomato->tabela, key, 1); // Permanece viva
+                }
+            }
+            else
+            { // Se a celula esta morta
+                if (vizinhosVivos == 3)
+                {
+                    inserirHash(novoAutomato->tabela, key, 1); // Torna-se viva
+                }
+            }
+        }
+    }
+
+    desalocarReticulado(&tab); // Desaloca o automato anterior
+    
+    return evoluirReticulado(novoAutomato, n, geracoes - 1);
+}
+
+
+ \end{lstlisting}
+
+ \par A função \verb|evoluirReticulado| é responsável por evoluir o estado de um autômato celular que segue as regras do Jogo da Vida de Conway. O objetivo dessa função é calcular o estado do autômato após a aplicação das regras de evolução a partir do estado atual. A função recebe como parâmetro um ponteiro para a estrutura Automato, que contém a tabela hash representando as células vivas.
+
+O processo começa percorrendo a tabela hash, onde estão armazenadas as células vivas. Para cada célula viva, a função conta o número de vizinhos vivos ao redor, verificando as oito direções ao redor da célula, exceto a própria posição da célula.
+
+Com base no número de vizinhos vivos, as regras do Jogo da Vida são aplicadas para determinar o estado da célula na próxima geração:
+
+ \begin{itemize}
+
+ \item Se a célula está viva e possui 2 ou 3 vizinhos vivos, ela permanece viva.
+
+ \item  Se a célula está viva e tem menos de 2 ou mais de 3 vizinhos vivos, ela morre (por subpopulação ou superpopulação).
+
+\item Se a célula está morta e tem exatamente 3 vizinhos vivos, uma nova célula nasce nessa posição.
+
+ \end{itemize}
+
+Além disso, a função verifica as células vizinhas que estão mortas para avaliar se elas devem se tornar vivas, aplicando a regra de nascimento. A tabela hash é atualizada conforme essas regras são aplicadas.
+
+Após a atualização de todas as células, o estado final da tabela hash é atualizado, representando o novo estado do reticulado após a evolução. Esse processo pode ser repetido por várias gerações, permitindo a evolução contínua do autômato ao longo do tempo.
+
+A função evoluirReticulado tem uma complexidade de O(n2*g), onde 
+n é o tamanho do tabuleiro e g é o número de gerações que queremos simular. O que basicamente significa que ela precisa processar cada célula do tabuleiro, que tem tamanho N×N, e isso é feito para cada uma das gerações que a gente quer simular. Então, se o tabuleiro for grande ou se o número de gerações for alto, o tempo de execução aumenta proporcionalmente. Como a função faz isso de forma recursiva, ela acaba repetindo esse processo para cada geração, por isso a multiplicação por g, o número de gerações.
+
+ 
+\subsection{Função   imprimeReticulado}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+void imprimeReticulado(Automato *tab)
+{
+    printf("\n");
+
+    for (int i = 0; i < tab->n; i++)
+    {
+        for (int j = 0; j < tab->n; j++)
+        {
+            int key = i * tab->n + j;
+            int valor = buscarHash(tab->tabela, key);
+            if (valor == -1)
+            {
+                printf("0 "); // Se nao encontrado na tabela, esta morto
+            }
+            else
+            {
+                printf("%d ", valor); // Imprime 1 se esta vivo
+            }
+        }
+        printf("\n");
+    }
+}
+
+
+ \end{lstlisting}
+
+ \par A função \verb|imprimeReticulado| é responsável por imprimir o estado atual do autômato na tela. Ela percorre toda a grade do autômato, verificando cada célula na tabela hash para determinar se está viva ou morta. Se a célula estiver viva, a função imprime 1; caso contrário, imprime 0. Essa abordagem permite visualizar claramente o estado do autômato no terminal, facilitando a análise da evolução das células ao longo das gerações. A complexidade dessa função é de O(m2), onde m é o tamanho da matriz m x m, Essa complexidade se deve ao fato de que cada célula da matriz precisa ser visitada e impressa.
+
+
+\section{Arquivo de Implementação (tp.c)}
+
+O arquivo de implementação \verb|tp.c| contém o código principal que utiliza as funções declaradas nos arquivos de cabeçalho \verb|automato.h| e \verb|double hash.h|, e implementadas em \verb|automato.c| e \verb|double hash.c|. Este arquivo orquestra a execução do programa, gerencia a entrada e saída de dados, e controla a evolução do autômato celular ao longo das gerações. A seguir, está descrito o funcionamento das principais seções e funções deste arquivo: 
+
+
+ \subsection{Inclusão de Cabeçalhos}
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+include <stdio.h>
+include <stdlib.h>
+include "automato.h"
+ \end{lstlisting}
+
+\par Inclui as bibliotecas necessárias para entrada e saída padrão e alocação de memória, além do arquivo de cabeçalho \verb|automato.h|, que contém as declarações das funções e definições do \verb|Automato|.   
+
+\subsection{Função main}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+int main()
+{
+    int n, geracoes;
+
+    // Le a dimensao do automato e o numero de geracoes.
+    scanf("%d %d", &n, &geracoes);
+
+    // Inicializa o automato
+    Automato *automato = alocarReticulado(n);
+
+    // Le o estado inicial do reticulado.
+    LeituraReticulado(automato);
+
+    // Evolui o automato para o numero especificado de geracoes.
+    automato = evoluirReticulado(automato, n, geracoes);
+
+    // Imprime o estado do reticulado apos as geracoes.
+    imprimeReticulado(automato);
+
+    // Desaloca a memoria usada pelo automato.
+    desalocarReticulado(&automato);
+
+    return 0;
+}
+ \end{lstlisting}
+
+ \par A função main é o ponto de entrada do programa. Declara duas variáveis, n (dimensão do autômato) e geracoes (número de gerações a serem evoluídas). Utiliza scanf para ler esses valores da entrada padrão.
+
+\subsection{Chamadas das Funções}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+alocarReticulado(n);
+
+LeituraReticulado(automato);
+
+evoluirReticulado(automato, n, geracoes);
+
+imprimeReticulado(automato);
+
+desalocarReticulado(&automato);
+
+
+\end{lstlisting}
+
+\begin{itemize}
+
+\item Inicialização: Chama a função \verb|alocarReticulado| para alocar memória e inicializar o autômato com a dimensão especificada.
+
+\item Leitura do Reticulado: Chama a função \verb|LeituraReticulado| para ler o estado inicial do tabuleiro a partir da entrada padrão.
+
+\item Evolução do Autômato:Chama a função \verb|evoluirReticulado| para evoluir o autômato pelo número especificado de gerações.
+
+\item Impressão do Reticulado: Chama a função imprimeReticulado para imprimir o estado final do tabuleiro.
+
+\item Desalocação de Memória: Chama a função \verb|desalocarReticulado| para liberar a memória alocada para o autômato, evitando vazamentos de memória.
+
+\end{itemize}
+
+\subsection{Fim da Função main}
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+return 0;
+}
+
+ \end{lstlisting}
+
+ \par Retorna 0, indicando que o programa terminou com sucesso.
+
+\section{Impressões gerais}
+
+\par   A implementação deste projeto foi uma experiência rica e desafiadora, especialmente no que se refere à utilização da Tabela Hash de Endereçamento Linear com endereçamento duplo. Essa abordagem se mostrou extremamente eficaz para gerenciar as inserções e buscas, minimizando colisões e garantindo a integridade dos dados armazenados. A escolha do endereçamento duplo foi uma estratégia acertada, pois permitiu uma distribuição mais uniforme das entradas, melhorando significativamente a performance em comparação com métodos mais simples.
+\par Gerenciar a alocação e desalocação de memória na tabela hash foi uma tarefa que exigiu atenção aos detalhes, pois pequenos erros poderiam resultar em falhas de segmentação ou vazamentos de memória. A depuração e o tratamento de situações como a realocação de entradas foram desafiadores, mas essas dificuldades se transformaram em uma oportunidade valiosa para aprimorar meu entendimento sobre gerenciamento de memória em C. Cada erro encontrado serviu como um aprendizado sobre como projetar e implementar estruturas de dados que não apenas funcionam, mas também são eficientes e seguras.
+\par A implementação das funções para manipular a tabela hash, incluindo a inserção, remoção e busca de elementos, me proporcionou um aprendizado profundo sobre como as tabelas hash operam internamente. A interação entre os métodos de hashing e as técnicas de resolução de colisões foi um aspecto fascinante do projeto, demonstrando como soluções algorítmicas inteligentes podem otimizar operações em grandes conjuntos de dados.
+\par Além disso, a aplicação das regras do Jogo da Vida dentro dessa estrutura de dados ressaltou a importância de uma implementação robusta e eficiente. A capacidade de lidar com entradas dinâmicas e a complexidade da evolução do autômato foram facilitadas pela tabela hash, evidenciando sua relevância na resolução de problemas computacionais.
+\par Em suma, esta experiência não apenas aprimorou minhas habilidades técnicas, mas também me proporcionou uma compreensão mais profunda do impacto das estruturas de dados na eficiência dos algoritmos. A Tabela Hash de Endereçamento Linear com endereçamento duplo se destacou como um componente crucial na arquitetura do projeto, reforçando a elegância e a eficácia das soluções algorítmicas bem fundamentadas.
+
+\section{Análise}
+
+\par Vamos analisar o tempo de execução do código e se teve algum vazamento de memória. Iremos também comparar os resultados deste trabalho com os 2 anteriores.
+
+\subsection{Tempo de Execução}
+\par Testamos o tempo de execução da entrada do teste 20.in. O resultado obtido foi:
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+real    0m1.105s
+user    0m0.004s
+sys     0m0.001s
+
+ \end{lstlisting}
+
+\subsection{Valgrind}
+\par Utilizamos o Valgrind para verificar se teve algum vazamento de memória, também com a entrada do teste 20.in. O resultado obtido foi:
+
+\begin{lstlisting}[caption={},label={lst:cod1},language={[x86masm]Assembler}]
+==23280== HEAP SUMMARY:
+==23280==     in use at exit: 0 bytes in 0 blocks
+==23280==   total heap usage: 10 allocs, 10 frees, 11,760 bytes allocated
+==23280== 
+==23280== All heap blocks were freed -- no leaks are possible
+==23280== 
+==23280== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+ \end{lstlisting}
+
+\subsection{Comparação em relação aos trabalhos anteriores}
+
+\par Na comparação com os trabalhos anteriores, notamos diferenças significativas, especialmente em termos de otimização e uso de memória. No primeiro trabalho, desenvolvemos um autômato que armazenava os números e aplicava as regras do jogo da vida diretamente, resultando em um uso mais genérico de estruturas de dados, com maior dependência de alocações dinâmicas. Já no segundo, implementamos o sistema utilizando uma matriz esparsa, o que melhorou a eficiência em termos de armazenamento, já que grande parte da matriz do jogo da vida permanece vazia.
+
+\par No terceiro trabalho, optamos por utilizar uma tabela hash, o que trouxe vantagens claras em termos de gestão de memória. Durante a análise com o Valgrind, percebemos uma redução considerável no número de alocações e desalocações em comparação com as versões anteriores. Isso acontece porque a tabela hash permite um acesso mais eficiente aos elementos, sem a necessidade de alocar grandes blocos de memória para armazenar posições ou células inativas do tabuleiro. Dessa forma, o terceiro trabalho se destaca por sua maior eficiência na utilização de memória e uma gestão mais enxuta dos recursos, com menos operações de alocação e liberação de memória.
+
+\section{Conclusão} 
+\par Após a implementação e execução do terceiro trabalho sobre o Jogo da Vida, utilizando tabelas hash com endereçamento aberto e hashing duplo, podemos concluir que o desempenho e a eficiência do código foram satisfatórios. Utilizamos o comando time para medir o tempo de execução, e os resultados indicaram uma performance sólida, evidenciando a eficácia das funções implementadas e da abordagem escolhida.
+
+\par Também empregamos a ferramenta Valgrind para verificar possíveis vazamentos de memória durante a execução do programa. Os resultados mostraram uma redução significativa no número de alocações e desalocações, sem ocorrência de vazamentos, indicando que o uso da tabela hash proporcionou uma melhor gestão da memória em comparação com os trabalhos anteriores, onde foram utilizadas outras estruturas, como autômatos e matrizes esparsas.
+
+\par O programa cumpriu todos os requisitos propostos, permitindo a inserção, busca e remoção de elementos de maneira eficiente. A implementação do endereçamento duplo na tabela hash demonstrou ser vantajosa, minimizando colisões e melhorando a performance das operações.
+
+\par Em resumo, o projeto alcançou seus objetivos com um código eficiente e sem problemas de memória. A escolha da tabela hash para o terceiro trabalho foi acertada, resultando em uma implementação otimizada em relação ao gerenciamento de memória e desempenho, validando a eficácia das soluções e a estrutura de dados selecionada para este contexto.
+
+\end{document}

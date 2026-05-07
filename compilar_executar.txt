@@ -1,0 +1,4 @@
+Para compilar e executar no terminal utilize:
+
+gcc -g -o exe *.c -Wall
+valgrind --leak-check=full -s ./exe
